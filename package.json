@@ -1,0 +1,16 @@
+{
+  "name": "image-processing-benchmark",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "bench": "bun run src/index.ts",
+    "bench:json": "bun run src/index.ts --format json"
+  },
+  "dependencies": {
+    "sharp": "^0.34.2",
+    "cli-table3": "^0.6.5"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0"
+  }
+}
