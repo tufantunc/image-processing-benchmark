@@ -11,6 +11,12 @@
   <img src="https://img.shields.io/badge/adapters-5-purple" alt="5 Adapters">
 </p>
 
+<p align="center">
+  <a href="https://tufantunc.github.io/image-processing-benchmark/">
+    <img src="https://img.shields.io/badge/Live_Report-GitHub_Pages-58a6ff?style=for-the-badge&logo=github&logoColor=white" alt="Live Benchmark Report">
+  </a>
+</p>
+
 ---
 
 ## Why This Exists
