@@ -4,11 +4,15 @@
   "type": "module",
   "scripts": {
     "bench": "bun run src/index.ts",
-    "bench:json": "bun run src/index.ts --format json"
+    "bench:json": "bun run src/index.ts --format json",
+    "bench:html": "bun run src/index.ts --format html > docs/index.html"
   },
   "dependencies": {
-    "sharp": "^0.34.2",
-    "cli-table3": "^0.6.5"
+    "@jimp/wasm-webp": "^1.6.1",
+    "@napi-rs/canvas": "^1.0.0",
+    "cli-table3": "^0.6.5",
+    "jimp": "^1.6.1",
+    "sharp": "^0.34.2"
   },
   "devDependencies": {
     "@types/bun": "^1.2.0"

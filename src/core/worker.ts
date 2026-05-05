@@ -1,11 +1,4 @@
-import type { Operation, ResizeOp, Adapter } from "../types";
-import { SharpAdapter } from "../adapters/sharp.adapter";
-import { BunAdapter } from "../adapters/bun.adapter";
-
-const adapters: Record<string, Adapter> = {
-  sharp: new SharpAdapter(),
-  bun: new BunAdapter(),
-};
+import type { Operation, Adapter } from "../types";
 
 interface WorkerInput {
   adapterName: string;
@@ -20,15 +13,29 @@ async function main() {
   }
   const input = JSON.parse(Buffer.concat(chunks).toString()) as WorkerInput;
 
-  const adapter = adapters[input.adapterName];
-  if (!adapter) {
-    console.log(
-      JSON.stringify({
-        durationMs: 0,
-        outputSizeBytes: 0,
-        error: `Unknown adapter: ${input.adapterName}`,
-      })
-    );
+  let adapter: Adapter;
+  try {
+    if (input.adapterName === "sharp") {
+      const { SharpAdapter } = await import("../adapters/sharp.adapter");
+      adapter = new SharpAdapter();
+    } else if (input.adapterName === "bun") {
+      const { BunAdapter } = await import("../adapters/bun.adapter");
+      adapter = new BunAdapter();
+    } else if (input.adapterName === "ffmpeg") {
+      const { FFmpegAdapter } = await import("../adapters/ffmpeg.adapter");
+      adapter = new FFmpegAdapter();
+    } else if (input.adapterName === "jimp") {
+      const { JimpAdapter } = await import("../adapters/jimp.adapter");
+      adapter = new JimpAdapter();
+    } else if (input.adapterName === "canvas") {
+      const { CanvasAdapter } = await import("../adapters/canvas.adapter");
+      adapter = new CanvasAdapter();
+    } else {
+      console.log(JSON.stringify({ durationMs: 0, outputSizeBytes: null, hasError: true, errorMessage: `Unknown adapter: ${input.adapterName}` }));
+      return;
+    }
+  } catch (err: any) {
+    console.log(JSON.stringify({ durationMs: 0, outputSizeBytes: null, hasError: true, errorMessage: `Adapter load failed: ${err.message}` }));
     return;
   }
 
@@ -38,21 +45,9 @@ async function main() {
   try {
     const result = await adapter.execute(input.operation, input.inputPath);
     const durationMs = performance.now() - start;
-
-    console.log(
-      JSON.stringify({
-        durationMs,
-        outputSizeBytes: result.byteLength,
-      })
-    );
+    console.log(JSON.stringify({ durationMs, outputSizeBytes: result.byteLength }));
   } catch (err: any) {
-    console.log(
-      JSON.stringify({
-        durationMs: 0,
-        outputSizeBytes: 0,
-        error: err.message || String(err),
-      })
-    );
+    console.log(JSON.stringify({ durationMs: 0, outputSizeBytes: null, hasError: true, errorMessage: err.message || String(err) }));
   }
 }
 

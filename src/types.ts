@@ -46,6 +46,8 @@ export interface IterationResult {
 }
 
 export interface Metrics {
+  errors: number;
+  failed: boolean;
   medianMs: number;
   meanMs: number;
   minMs: number;
@@ -81,5 +83,21 @@ export interface BenchmarkConfig {
   resultsDir: string;
   adapters: string[];
   operations: string[];
-  format: "table" | "json" | "csv";
+  format: "table" | "json" | "csv" | "html";
+}
+
+export interface IterationProgress {
+  iteration: number;
+  totalIterations: number;
+  phase: "warmup" | "measure";
+}
+
+export interface TaskProgress {
+  taskIndex: number;
+  totalTasks: number;
+  adapter: string;
+  opLabel: string;
+  fixtureLabel: string;
+  startTimeMs: number;
+  iteration?: IterationProgress;
 }

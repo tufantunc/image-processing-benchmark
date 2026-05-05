@@ -18,7 +18,7 @@ export const config: BenchmarkConfig = {
   memoryPollIntervalMs: parseInt(getArg("poll-interval") || "10", 10),
   fixturesDir: "./fixtures",
   resultsDir: "./results",
-  adapters: (getArg("adapters") || "sharp,bun").split(","),
+  adapters: (getArg("adapters") || "sharp,bun,ffmpeg,jimp,canvas").split(","),
   operations: getArg("ops") ? getArg("ops")!.split(",") : [],
   format: (getArg("format") as "table" | "json" | "csv") || "table",
 };

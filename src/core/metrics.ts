@@ -1,8 +1,10 @@
 import type { IterationResult, Metrics } from "../types";
 
-export function calculateMetrics(results: IterationResult[]): Metrics {
+export function calculateMetrics(results: IterationResult[], errors: number): Metrics {
   if (results.length === 0) {
     return {
+      errors,
+      failed: true,
       medianMs: 0,
       meanMs: 0,
       minMs: 0,
@@ -20,6 +22,8 @@ export function calculateMetrics(results: IterationResult[]): Metrics {
   const outputSize = results[results.length - 1].outputSizeBytes;
 
   return {
+    errors,
+    failed: false,
     medianMs: percentile(durations, 50),
     meanMs: avg(durations),
     minMs: durations[0],

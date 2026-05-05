@@ -24,12 +24,11 @@ export class BunAdapter implements Adapter {
     };
     const { width, height } = resolveOpDimensions(op, fixture);
 
-    let img = new (Bun as any).Image(inputPath).resize(width, height);
-    if (op.fit === "inside") {
-      img = new (Bun as any).Image(inputPath).resize(width, height, {
-        fit: "inside",
-      });
-    }
+    const options: Record<string, unknown> = {};
+    if (op.fit === "inside") options.fit = "inside";
+    if (op.kernel && op.kernel !== "lanczos3") options.filter = op.kernel;
+
+    const img = new (Bun as any).Image(inputPath).resize(width, height, options);
 
     const buf = await img.buffer();
     return Buffer.from(buf);

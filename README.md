@@ -1,260 +1,283 @@
-# Image Processing Benchmark
+<h1 align="center">Image Processing Benchmark</h1>
 
-Node.js ekosistemindeki image processing araçlarını süre ve RAM kullanımı bazında karşılaştırmak için benchmark framework'ü.
+<p align="center">
+  <strong>Fair, reproducible benchmarks comparing popular image processing libraries on speed and memory usage.</strong>
+</p>
 
-## Hedefler
+<p align="center">
+  <img src="https://img.shields.io/badge/runtime-Bun-canary-orange" alt="Bun Canary">
+  <img src="https://img.shields.io/badge/language-TypeScript-blue" alt="TypeScript">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
+  <img src="https://img.shields.io/badge/adapters-5-purple" alt="5 Adapters">
+</p>
 
-- `sharp` vs `bun` native image API karşılaştırması
-- Her operasyon için **çalışma süresi (ms)** ve **peak RAM kullanımı (MB)** ölçümü
-- Plugin/adapter mimarisi ile yeni araçların kolayca entegre edilmesi
-- Sonuçların tablo ve JSON formatında raporlanması
+---
 
-## Mimari
+## Why This Exists
+
+Choosing an image processing library often comes down to word-of-mouth or outdated blog posts. This project provides a **transparent, reproducible** benchmark suite so you can compare adapters on your own hardware with your own test images — and see exactly how the numbers are produced.
+
+**Key design goals:**
+
+- **Isolation** — each iteration runs in a separate process so memory leaks don't accumulate
+- **Fairness** — adapters are loaded dynamically so one library's native bindings don't inflate another's memory footprint
+- **Reproducibility** — Docker support, fixed test fixtures, and deterministic CLI flags
+
+## Table of Contents
+
+- [Adapters](#adapters)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [How It Works](#how-it-works)
+- [Operations](#operations)
+- [HTML Report](#html-report)
+- [Architecture](#architecture)
+- [Extending](#extending)
+- [Known Limitations](#known-limitations)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Adapters
+
+| Adapter | Type | WebP In | WebP Out | Notes |
+|---------|------|:-------:|:--------:|-------|
+| **sharp** | Native (libvips) | ✅ | ✅ | Most popular Node.js image library |
+| **bun** | Native (Rust) | ✅ | ✅ | Bun's built-in `Bun.Image` API |
+| **ffmpeg** | CLI tool | ✅ | ❌ | Multimedia framework; resize only |
+| **jimp** | Pure JavaScript | ❌ | ✅ | Zero native dependencies (WebP via WASM) |
+| **canvas** | Native (Skia) | ✅ | ✅ | `@napi-rs/canvas`, zero system deps |
+
+## Quick Start
+
+### Docker (recommended)
+
+No local tool installation needed:
+
+```bash
+./run-bench.sh --format html > results.html
+```
+
+### Local
+
+> **Prerequisites:** [Bun canary](https://bun.sh) (`bun upgrade --canary`) and [FFmpeg](https://ffmpeg.org/) on PATH.
+
+```bash
+bun install
+bun run src/index.ts
+```
+
+## Usage
+
+```bash
+# All adapters, all operations, table output (default)
+bun run src/index.ts
+
+# Specific adapters and operations
+bun run src/index.ts --adapters sharp,bun --ops resize_down_half --iterations 20
+
+# Output formats
+bun run src/index.ts --format json > results.json
+bun run src/index.ts --format csv > results.csv
+bun run src/index.ts --format html > results.html
+
+# Tune benchmark parameters
+bun run src/index.ts --warmup 5 --iterations 50 --poll-interval 10
+```
+
+### Docker wrapper (`run-bench.sh`)
+
+```bash
+./run-bench.sh --format html > results.html
+./run-bench.sh --adapters sharp,bun --ops resize_down_half --iterations 20
+./run-bench.sh --build --format table          # force rebuild
+./run-bench.sh --fixtures-dir ./my-fixtures    # custom test images
+```
+
+Or use Docker directly:
+
+```bash
+docker build -t image-processing-benchmark .
+docker run --rm image-processing-benchmark --format html > results.html
+docker run --rm -v $(pwd)/my-fixtures:/app/fixtures:ro image-processing-benchmark --format json
+```
+
+### CLI Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--adapters` | `sharp,bun,ffmpeg,jimp,canvas` | Comma-separated adapter names |
+| `--ops` | All operations | Comma-separated operation IDs |
+| `--warmup` | `10` | Warmup iterations (discarded) |
+| `--iterations` | `50` | Measure iterations |
+| `--format` | `table` | `table`, `json`, `csv`, or `html` |
+| `--poll-interval` | `10` | RSS polling interval (ms) |
+
+## How It Works
+
+### Isolation
+
+Each benchmark iteration runs in an **isolated child process** (`Bun.spawn`). This prevents memory leaks from accumulating across runs and ensures accurate peak RSS measurement.
+
+Workers use dynamic `import()` to load only the adapter being tested — this prevents heavy native libraries (e.g., libvips ~40 MB) from inflating other adapters' RSS measurements.
+
+### Measurement
+
+- **Time:** `performance.now()` before and after `adapter.execute()` in the worker process
+- **Memory:** Peak RSS measured by polling `ps -o rss= -p <pid>` at a configurable interval
+- **Metrics:** Median, mean, min, max, P95, P99 computed across all measure iterations
+- **Warmup:** First N iterations are discarded to allow JIT compilation and cache warming
+
+### Test Fixtures
+
+27 test images: **3 types** (landscape, portrait, city) × **3 sizes** (small, medium, large) × **3 formats** (JPEG, PNG, WebP).
+
+| Size | Resolution | Approx. file size |
+|------|-----------|-------------------|
+| Small | 256 px | 2–50 KB |
+| Medium | 1920 px | 50–5 000 KB |
+| Large | 3840 px | 200–15 000 KB |
+
+## Operations
+
+### Resize (7 operations)
+
+| ID | Description |
+|----|-------------|
+| `resize_down_half` | Resize to 50% dimensions |
+| `resize_inside_800x600` | Resize to fit inside 800×600 |
+| `resize_fill_800x600` | Resize to fill 800×600 |
+| `resize_thumbnail_256` | Resize to 256×256 thumbnail |
+| `resize_upscale_2x` | Upscale to 200% dimensions |
+| `resize_kernel_nearest` | Resize 50% with nearest-neighbor |
+| `resize_kernel_lanczos3` | Resize 50% with Lanczos3 |
+
+### Format Conversion (6 operations)
+
+| ID | Description |
+|----|-------------|
+| `convert_jpeg_to_png` | JPEG → PNG |
+| `convert_jpeg_to_webp` | JPEG → WebP (quality 80) |
+| `convert_png_to_jpeg` | PNG → JPEG (quality 85) |
+| `convert_png_to_webp` | PNG → WebP (quality 80) |
+| `convert_webp_to_jpeg` | WebP → JPEG (quality 85) |
+| `convert_webp_to_png` | WebP → PNG |
+
+## HTML Report
+
+The HTML report is a self-contained page with inline data and Chart.js charts:
+
+```bash
+bun run src/index.ts --format html > docs/index.html
+```
+
+**Features:**
+
+- Summary cards (fastest adapter, least RAM, avg median, peak RAM)
+- Bar charts for resize, convert, and memory with percentage comparison labels
+- Sortable/filterable pivot table with per-adapter metrics
+- Dark theme, responsive layout
+
+## Architecture
 
 ```
 src/
+├── index.ts                          # CLI entry point
+├── config.ts                         # CLI argument parsing
+├── types.ts                          # Shared type definitions
 ├── core/
-│   ├── runner.ts            # Benchmark runner - her adapter'ı child process'te çalıştırır
-│   ├── metrics.ts           # time + RSS ölçüm utilities
-│   ├── types.ts             # Ortak tip tanımları (Adapter, Operation, BenchmarkResult)
-│   └── reporter.ts          # Sonuçları formatlar (table, JSON, CSV)
+│   ├── benchmark.ts                  # Spawns worker per iteration, polls RSS
+│   ├── worker.ts                     # Reads stdin, runs adapter, writes stdout
+│   ├── metrics.ts                    # calculateStats, getChildRSS
+│   ├── reporter.ts                   # reportTable, reportJSON, reportCSV
+│   └── report-html.ts               # Full HTML report with Chart.js
 ├── adapters/
-│   ├── base.adapter.ts      # Abstract adapter sınıfı
-│   ├── sharp.adapter.ts     # Sharp implementasyonu
-│   └── bun-native.adapter.ts # Bun native image API implementasyonu
+│   ├── sharp.adapter.ts             # sharp (libvips)
+│   ├── bun.adapter.ts               # Bun.Image
+│   ├── ffmpeg.adapter.ts            # ffmpeg CLI
+│   ├── jimp.adapter.ts              # Jimp (pure JS + WASM WebP)
+│   └── canvas.adapter.ts            # @napi-rs/canvas (Skia)
 ├── operations/
-│   └── definitions.ts       # Ortak operasyon listesi (resize, grayscale, rotate, blur, crop)
-├── fixtures/
-│   └── generate.ts          # Test görsellerini oluşturur (farklı boyutlarda)
-├── config.ts                # Benchmark ayarları (warmup iterasyon, ölçüm iterasyon vs.)
-└── index.ts                 # CLI entry point
+│   └── definitions.ts               # Operation definitions + helpers
+fixtures/                             # 27 test images
 ```
 
-## Adapter Interface
+## Extending
+
+### Adding a New Adapter
+
+1. Create `src/adapters/<name>.adapter.ts` implementing the `Adapter` interface:
 
 ```ts
-type OperationName = "resize" | "grayscale" | "rotate" | "blur" | "crop" | "convert" | "compress";
+import type { Adapter, Operation } from "../types";
 
-interface Operation {
-  name: OperationName;
-  params: Record<string, unknown>;
-}
+export class MyAdapter implements Adapter {
+  name = "my-adapter";
 
-interface AdapterRunResult {
-  outputBuffer: Buffer;
-  durationMs: number;
-  peakMemoryBytes: number;
-}
-
-interface ImageAdapter {
-  name: string;
-  supportedOps: OperationName[];
-  execute(op: Operation, inputPath: string, outputPath: string): Promise<AdapterRunResult>;
-}
-```
-
-## Runner Stratejisi
-
-Her benchmark şu şekilde çalışır:
-
-1. **Isolation**: Her adapter ayrı bir child process'te çalışır (`child_process.fork` veya `Bun.spawn`)
-   - Böylece bir adapter'ın memory leak'i diğerini etkilemez
-   - Peak RSS doğru ölçülebilir (`process.memoryUsage().rss` + `maxRSS`)
-
-2. **Warmup**: İlk N iterasyon atlanır (JIT compilation, cache warmup için)
-
-3. **Measurement**: M iterasyon boyunca her çalıştırmanın süresi ve RSS'i kaydedilir
-
-4. **Aggregation**: Median, mean, min, max, P95, P99 hesaplanır
-
-```
-┌──────────┐    spawn     ┌─────────────────────┐
-│  Runner   │ ──────────► │  Child Process       │
-│  (main)   │             │  ┌───────────────┐   │
-│           │ ◄────────── │  │ Adapter.run() │   │
-│  metrics  │   result    │  └───────────────┘   │
-│  collect  │             └─────────────────────┘
-└──────────┘
-```
-
-## Memory Ölçüm Yaklaşımları
-
-### Seçenek A: In-process measurement
-```ts
-// Child process içinde
-global.gc?.(); // GC'yi zorla (--expose-gc flag ile çalıştırılmalı)
-const startMem = process.memoryUsage();
-// ... işlem ...
-const endMem = process.memoryUsage();
-const peak = Math.max(startMem.heapUsed, endMem.heapUsed);
-```
-
-### Seçenek B: OS-level measurement (önerilen)
-```ts
-// Runner tarafında, child process'in RSS'ini izle
-const child = fork("./adapter-runner.js");
-const memSamples: number[] = [];
-const pollInterval = setInterval(() => {
-  // /proc/<pid>/status (Linux) veya ps komutu (macOS)
-  const rss = getChildRSS(child.pid!);
-  memSamples.push(rss);
-}, 10); // 10ms poll interval
-```
-
-**Seçenek B önerilir** çünkü:
-- In-process heap measurement native addon'ların (libvips/sharp) dışarıda ayırdığı RAM'i göremez
-- OS-level RSS tüm memory kullanımını (shared libraries dahil) kapsar
-
-## Benchmark Operasyonları
-
-| Operasyon    | Parametreler                    | Açıklama                          |
-|-------------|---------------------------------|-----------------------------------|
-| resize      | `{ width, height, fit }`       | Boyutlandırma                     |
-| grayscale   | `{}`                            | Siyah-beyaz dönüşümü              |
-| rotate      | `{ angle }`                     | Döndürme                          |
-| blur        | `{ sigma }`                     | Gaussian blur                     |
-| crop        | `{ x, y, width, height }`      | Kırpma                            |
-| convert     | `{ format: "jpeg"|"png"|"webp"}` | Format dönüşümü                 |
-| compress    | `{ quality }`                   | Sıkıştırma (format bazlı)         |
-
-## Test Fixtures
-
-Farklı boyutlarda test görselleri:
-
-- `small.jpg` (100x100, ~5KB)
-- `medium.jpg` (1920x1080, ~500KB)
-- `large.jpg` (3840x2160, ~2MB)
-- `huge.png` (6000x4000, ~15MB, PNG - decompression stress testi)
-
-## Rapor Formatı
-
-### Tablo (CLI)
-```
-┌──────────────────┬───────────┬───────────┬──────────┬──────────┬─────────┐
-│ Operation        │ Adapter   │ Median ms │ Mean ms  │ P95 ms   │ Peak MB │
-├──────────────────┼───────────┼───────────┼──────────┼──────────┼─────────┤
-│ resize(800,600)  │ sharp     │ 12.3      │ 13.1     │ 18.2     │ 45.2    │
-│ resize(800,600)  │ bun-native│ 8.1       │ 9.4      │ 14.7     │ 22.1    │
-│ grayscale        │ sharp     │ 5.2       │ 5.8      │ 8.1      │ 38.4    │
-│ grayscale        │ bun-native│ 3.9       │ 4.1      │ 6.3      │ 18.7    │
-└──────────────────┴───────────┴───────────┴──────────┴──────────┴─────────┘
-```
-
-### JSON
-```json
-{
-  "timestamp": "2026-05-04T...",
-  "runtime": { "name": "bun", "version": "1.2.x" },
-  "results": [
-    {
-      "operation": "resize",
-      "params": { "width": 800, "height": 600 },
-      "adapter": "sharp",
-      "fixture": "medium.jpg",
-      "iterations": 100,
-      "metrics": {
-        "medianMs": 12.3,
-        "meanMs": 13.1,
-        "minMs": 10.8,
-        "maxMs": 22.4,
-        "p95Ms": 18.2,
-        "p99Ms": 20.1,
-        "peakMemoryMB": 45.2,
-        "meanMemoryMB": 40.1
-      }
-    }
-  ]
-}
-```
-
-## Yeni Adapter Ekleme (Örnek: Rust)
-
-1. Rust projesini `adapters/rust-image/` altına oluştur
-2. CLI binary compile et: input path, operation, params, output path argüman olarak alsın
-3. `adapters/rust.adapter.ts` oluştur:
-
-```ts
-import { ImageAdapter, Operation, AdapterRunResult } from "../core/types";
-
-export class RustAdapter implements ImageAdapter {
-  name = "rust-image";
-  supportedOps = ["resize", "grayscale", "blur"];
-  private binaryPath = "./adapters/rust-image/target/release/rust-image";
-
-  async execute(op: Operation, inputPath: string, outputPath: string): Promise<AdapterRunResult> {
-    const start = performance.now();
-    const proc = Bun.spawn([
-      this.binaryPath,
-      "--input", inputPath,
-      "--output", outputPath,
-      "--operation", op.name,
-      "--params", JSON.stringify(op.params),
-    ]);
-    await proc.exited;
-    const durationMs = performance.now() - start;
-    // RSS ölçümü runner tarafından yapılır
-    return { outputBuffer: await Bun.file(outputPath).arrayBuffer(), durationMs, peakMemoryBytes: 0 };
+  async execute(operation: Operation, inputPath: string): Promise<Buffer> {
+    // resize: operation.kind === "resize"
+    // convert: operation.kind === "convert"
+    return outputBuffer;
   }
 }
 ```
 
-4. `config.ts`'ye adapter'ı kaydet.
+2. Add a dynamic import branch in `src/core/worker.ts`:
 
-## Teknoloji Seçimleri
-
-| Katman       | Seçim        | Sebeç                                       |
-|-------------|-------------|----------------------------------------------|
-| Runtime      | Bun         | Native image API + hızlı startup             |
-| Language     | TypeScript  | Tip güvenliği + adapter pattern için uygun   |
-| CLI Framework| Yerleşik    | Sadece `process.argv`, gereksiz dependency yok |
-| Table Output | `cli-table3`| En hafif tablo library'si                    |
-| Chart (opsiyonel) | `asciichart` | Terminal içi grafik                      |
-
-## CLI Kullanımı (Plan)
-
-```bash
-# Tüm benchmark'ları çalıştır
-bun run src/index.ts
-
-# Sadece belirli operasyonlar
-bun run src/index.ts --ops resize,grayscale
-
-# Sadece belirli adapter'lar
-bun run src/index.ts --adapters sharp,bun-native
-
-# İterasyon sayısı
-bun run src/index.ts --iterations 500 --warmup 50
-
-# Çıktı formatı
-bun run src/index.ts --format json > results.json
-bun run src/index.ts --format csv > results.csv
-bun run src/index.ts --format table  # default
+```ts
+} else if (input.adapterName === "my-adapter") {
+  const { MyAdapter } = await import("../adapters/my-adapter.adapter");
+  adapter = new MyAdapter();
+}
 ```
 
-## Geliştirme Aşamaları
+3. Add a CSS color in `src/core/report-html.ts` (`COLORS` map + CSS variables).
+4. Run: `bun run src/index.ts --adapters my-adapter`
 
-### Phase 1: Temel Altyapı
-- [ ] `core/types.ts` - Tip tanımları
-- [ ] `core/metrics.ts` - Zaman ve RAM ölçüm yardımcıları
-- [ ] `core/runner.ts` - Child process tabanlı benchmark runner
-- [ ] `core/reporter.ts` - Tablo ve JSON rapor çıktıları
-- [ ] `config.ts` - Benchmark konfigürasyonu
+### Adding a New Operation
 
-### Phase 2: Adapter'lar
-- [ ] `adapters/sharp.adapter.ts` - Sharp implementasyonu
-- [ ] `adapters/bun-native.adapter.ts` - Bun native image API implementasyonu
+1. Add an entry to `RESIZE_OPERATIONS` or `CONVERT_OPERATIONS` in `src/operations/definitions.ts`
+2. Convert operations only run on fixtures matching `sourceFormat`; resize operations run on all fixtures
 
-### Phase 3: Fixtures & Operasyonlar
-- [ ] `operations/definitions.ts` - Tüm operasyon tanımları
-- [ ] `fixtures/generate.ts` - Test görseli üretici (sharp ile)
+## Known Limitations
 
-### Phase 4: CLI & Raporlama
-- [ ] `index.ts` - CLI entry point
-- [ ] Argüman parsing
-- [ ] Tablo çıktı formatı (cli-table3)
-- [ ] JSON çıktı formatı
+- **Jimp** cannot read WebP images (no decode support). WebP fixtures will show 0.00 for Jimp.
+- **FFmpeg** WebP output encoding depends on build-time libwebp support. The Docker image includes it; some local builds may not.
+- **Jimp** does not support Lanczos resampling. Lanczos operations fall back to bicubic interpolation.
+- `Bun.Image` must be cast as `(Bun as any).Image` because `@types/bun` doesn't include canary-only types yet.
 
-### Phase 5: Genişletme
-- [ ] Rust adapter örneği
-- [ ] Sonuç karşılaştırma modu (önceki çalıştırma ile diff)
-- [ ] HTML dashboard (opsiyonel)
+## Contributing
+
+Contributions are welcome! Here's how you can help:
+
+1. **Fork** the repository
+2. Create a **feature branch**: `git checkout -b my-feature`
+3. **Commit** your changes: `git commit -am 'Add new feature'`
+4. **Push** to the branch: `git push origin my-feature`
+5. Open a **Pull Request**
+
+Ideas for contributions:
+
+- New adapters (e.g., Squoosh, ImageMagick, Photon)
+- New operations or test fixtures
+- Improvements to the HTML report
+- Platform-specific benchmarks (Windows, ARM)
+
+Please ensure your changes work by running:
+
+```bash
+bun run src/index.ts --adapters <your-adapter> --iterations 5
+```
+
+## Tech Stack
+
+| Layer | Choice | Reason |
+|-------|--------|--------|
+| Runtime | Bun | `Bun.Image` native API, fast startup |
+| Language | TypeScript | Type safety, adapter pattern |
+| CLI | `process.argv` | Zero dependencies |
+| Tables | `cli-table3` | Lightweight table formatting |
+| Charts | Chart.js | HTML report visualization |
+
+## License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.

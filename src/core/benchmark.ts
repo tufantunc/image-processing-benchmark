@@ -1,4 +1,4 @@
-import type { Operation, ResizeOp, Fixture, BenchmarkConfig, IterationResult } from "../types";
+import type { Operation, ResizeOp, Fixture, BenchmarkConfig, IterationResult, IterationProgress } from "../types";
 import { resolveOpDimensions } from "../operations/definitions";
 import { calculateMetrics, getChildRSS } from "./metrics";
 
@@ -7,12 +7,14 @@ interface RunParams {
   operation: Operation;
   fixture: Fixture;
   config: BenchmarkConfig;
+  onIteration?: (info: IterationProgress) => void;
 }
 
 export async function runBenchmark(params: RunParams) {
   const { adapterName, operation, fixture, config } = params;
   const totalIterations = config.warmupIterations + config.measureIterations;
   const results: IterationResult[] = [];
+  let errorCount = 0;
 
   for (let i = 0; i < totalIterations; i++) {
     const peakSamples: number[] = [];
@@ -48,21 +50,33 @@ export async function runBenchmark(params: RunParams) {
 
     if (exitCode !== 0) {
       if (i >= config.warmupIterations) {
+        errorCount++;
         console.error(
           `  [ERROR] ${adapterName} | ${operation.id} | iter ${i}: worker exited ${exitCode}`
         );
       }
+      params.onIteration?.({
+        iteration: i + 1,
+        totalIterations,
+        phase: i < config.warmupIterations ? "warmup" : "measure",
+      });
       continue;
     }
 
     try {
       const parsed = JSON.parse(stdout.trim());
-      if (parsed.error) {
+      if (parsed.hasError) {
         if (i >= config.warmupIterations) {
+          errorCount++;
           console.error(
-            `  [ERROR] ${adapterName} | ${operation.id} | iter ${i}: ${parsed.error}`
+            `  [ERROR] ${adapterName} | ${operation.id} | iter ${i}: ${parsed.errorMessage || "unknown error"}`
           );
         }
+        params.onIteration?.({
+          iteration: i + 1,
+          totalIterations,
+          phase: i < config.warmupIterations ? "warmup" : "measure",
+        });
         continue;
       }
 
@@ -73,12 +87,23 @@ export async function runBenchmark(params: RunParams) {
           outputSizeBytes: parsed.outputSizeBytes,
         });
       }
+      params.onIteration?.({
+        iteration: i + 1,
+        totalIterations,
+        phase: i < config.warmupIterations ? "warmup" : "measure",
+      });
     } catch {
       if (i >= config.warmupIterations) {
+        errorCount++;
         console.error(
           `  [ERROR] ${adapterName} | ${operation.id} | iter ${i}: parse failed`
         );
       }
+      params.onIteration?.({
+        iteration: i + 1,
+        totalIterations,
+        phase: i < config.warmupIterations ? "warmup" : "measure",
+      });
     }
   }
 
@@ -88,7 +113,7 @@ export async function runBenchmark(params: RunParams) {
     fixture,
     warmup: config.warmupIterations,
     iterations: config.measureIterations,
-    metrics: calculateMetrics(results),
+    metrics: calculateMetrics(results, errorCount),
   };
 }
 

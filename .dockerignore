@@ -1,0 +1,5 @@
+node_modules
+docs
+results
+.git
+.DS_Store
