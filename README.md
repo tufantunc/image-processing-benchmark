@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/runtime-Bun-canary-orange" alt="Bun Canary">
+  <img src="https://img.shields.io/badge/runtime-Bun%20canary-orange" alt="Bun Canary">
   <img src="https://img.shields.io/badge/language-TypeScript-blue" alt="TypeScript">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
   <img src="https://img.shields.io/badge/adapters-5-purple" alt="5 Adapters">
