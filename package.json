@@ -12,6 +12,7 @@
     "@napi-rs/canvas": "^1.0.0",
     "cli-table3": "^0.6.5",
     "jimp": "^1.6.1",
+    "photon-rs": "^0.3.1",
     "sharp": "^0.34.2"
   },
   "devDependencies": {

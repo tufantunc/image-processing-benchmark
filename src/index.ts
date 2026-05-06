@@ -1,7 +1,8 @@
 import { config } from "./config";
 import { getOperationsByIds } from "./operations/definitions";
 import { runBenchmark } from "./core/benchmark";
-import { reportTable, reportJSON, reportCSV, reportHTML, printProgress, fmtDuration } from "./core/reporter";
+import { reportResults } from "./core/reporters";
+import { printProgress, fmtDuration } from "./core/util";
 import { discoverFixtures } from "./fixtures/meta";
 import type { BenchmarkResult, BenchmarkRun, Fixture, Operation, ConvertOp } from "./types";
 
@@ -106,20 +107,7 @@ async function main() {
     results,
   };
 
-  switch (config.format) {
-    case "json":
-      console.log(reportJSON(run));
-      break;
-    case "csv":
-      console.log(reportCSV(results));
-      break;
-    case "html":
-      console.log(reportHTML(run));
-      break;
-    default:
-      reportTable(results);
-      break;
-  }
+  reportResults(config.format, run);
 }
 
 main();

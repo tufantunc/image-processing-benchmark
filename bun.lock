@@ -9,6 +9,7 @@
         "@napi-rs/canvas": "^1.0.0",
         "cli-table3": "^0.6.5",
         "jimp": "^1.6.1",
+        "photon-rs": "^0.3.1",
         "sharp": "^0.34.2",
       },
       "devDependencies": {
@@ -212,6 +213,8 @@
     "parse-bmfont-binary": ["parse-bmfont-binary@1.0.6", "", {}, "sha512-GxmsRea0wdGdYthjuUeWTMWPqm2+FAd4GI8vCvhgJsFnoGhTrLhXDDupwTo7rXVAgaLIGoVHDZS9p/5XbSqeWA=="],
 
     "parse-bmfont-xml": ["parse-bmfont-xml@1.1.6", "", { "dependencies": { "xml-parse-from-string": "^1.0.0", "xml2js": "^0.5.0" } }, "sha512-0cEliVMZEhrFDwMh4SxIyVJpqYoOWDJ9P895tFuS+XuNzI5UBmBk5U5O4KuJdTnZpSBI4LFA2+ZiJaiwfSwlMA=="],
+
+    "photon-rs": ["photon-rs@0.3.1", "", {}, "sha512-P+694F3lGOih0Zzvl2QkP+viMfaz6LUHaSCEVOTl0WdtdwahPLt+JlPvjW5osNSLzaG/BWOUZBx9iniMS/0ipg=="],
 
     "pixelmatch": ["pixelmatch@5.3.0", "", { "dependencies": { "pngjs": "^6.0.0" }, "bin": { "pixelmatch": "bin/pixelmatch" } }, "sha512-o8mkY4E/+LNUf6LzX96ht6k6CEDi65k9G2rjMtBe9Oo+VPKSvl+0GKHuH/AlG+GA5LPG/i5hrekkxUc3s2HU+Q=="],
 
