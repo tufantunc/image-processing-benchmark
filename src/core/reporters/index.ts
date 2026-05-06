@@ -2,6 +2,7 @@ import type { BenchmarkRun } from "../../types";
 import { reportTable } from "./table";
 import { reportJSON } from "./json";
 import { reportCSV } from "./csv";
+import { reportHTML } from "./html";
 
 export function reportResults(format: string, run: BenchmarkRun): void {
   switch (format) {
@@ -20,8 +21,4 @@ export function reportResults(format: string, run: BenchmarkRun): void {
   }
 }
 
-function reportHTML(_run: BenchmarkRun): string {
-  throw new Error("HTML reporter not yet implemented");
-}
-
-export { reportTable, reportJSON, reportCSV };
+export { reportTable, reportJSON, reportCSV, reportHTML };
