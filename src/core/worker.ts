@@ -1,9 +1,17 @@
-import type { Operation, Adapter } from "../types";
+import type { Operation, Adapter, FixtureMeta } from "../types";
+import { getAdapterEntry } from "../adapters/registry";
+
+import "../adapters/sharp.adapter";
+import "../adapters/bun.adapter";
+import "../adapters/ffmpeg.adapter";
+import "../adapters/jimp.adapter";
+import "../adapters/canvas.adapter";
 
 interface WorkerInput {
   adapterName: string;
   operation: Operation;
   inputPath: string;
+  fixtureMeta: FixtureMeta;
 }
 
 async function main() {
@@ -13,27 +21,15 @@ async function main() {
   }
   const input = JSON.parse(Buffer.concat(chunks).toString()) as WorkerInput;
 
+  const entry = getAdapterEntry(input.adapterName);
+  if (!entry) {
+    console.log(JSON.stringify({ durationMs: 0, outputSizeBytes: null, hasError: true, errorMessage: `Unknown adapter: ${input.adapterName}` }));
+    return;
+  }
+
   let adapter: Adapter;
   try {
-    if (input.adapterName === "sharp") {
-      const { SharpAdapter } = await import("../adapters/sharp.adapter");
-      adapter = new SharpAdapter();
-    } else if (input.adapterName === "bun") {
-      const { BunAdapter } = await import("../adapters/bun.adapter");
-      adapter = new BunAdapter();
-    } else if (input.adapterName === "ffmpeg") {
-      const { FFmpegAdapter } = await import("../adapters/ffmpeg.adapter");
-      adapter = new FFmpegAdapter();
-    } else if (input.adapterName === "jimp") {
-      const { JimpAdapter } = await import("../adapters/jimp.adapter");
-      adapter = new JimpAdapter();
-    } else if (input.adapterName === "canvas") {
-      const { CanvasAdapter } = await import("../adapters/canvas.adapter");
-      adapter = new CanvasAdapter();
-    } else {
-      console.log(JSON.stringify({ durationMs: 0, outputSizeBytes: null, hasError: true, errorMessage: `Unknown adapter: ${input.adapterName}` }));
-      return;
-    }
+    adapter = await entry.create();
   } catch (err: any) {
     console.log(JSON.stringify({ durationMs: 0, outputSizeBytes: null, hasError: true, errorMessage: `Adapter load failed: ${err.message}` }));
     return;
@@ -43,7 +39,7 @@ async function main() {
 
   const start = performance.now();
   try {
-    const result = await adapter.execute(input.operation, input.inputPath);
+    const result = await adapter.execute(input.operation, input.inputPath, input.fixtureMeta);
     const durationMs = performance.now() - start;
     console.log(JSON.stringify({ durationMs, outputSizeBytes: result.byteLength }));
   } catch (err: any) {
