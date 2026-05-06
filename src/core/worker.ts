@@ -6,6 +6,8 @@ import "../adapters/bun.adapter";
 import "../adapters/ffmpeg.adapter";
 import "../adapters/jimp.adapter";
 import "../adapters/canvas.adapter";
+import "../adapters/imagemagick.adapter";
+import "../adapters/photon.adapter";
 
 interface WorkerInput {
   adapterName: string;
