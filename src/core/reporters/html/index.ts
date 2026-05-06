@@ -14,16 +14,7 @@ import { renderLeaderboard } from "./components/leaderboard";
 import { renderMethodology } from "./components/methodology";
 import { renderDetailTable } from "./components/detail-table";
 import { renderFooter } from "./components/footer";
-
-const ADAPTER_COLORS: Record<string, string> = {
-  sharp: "#f47067",
-  bun: "#70d0ff",
-  ffmpeg: "#bc8cff",
-  jimp: "#e3b341",
-  canvas: "#39d353",
-  imagemagick: "#ff7b72",
-  photon: "#d2a8ff",
-};
+import { ADAPTER_COLORS } from "../../../adapters/registry";
 
 export function reportHTML(run: BenchmarkRun): string {
   const adapterNames = [...new Set(run.results.map((r) => r.adapterName))];

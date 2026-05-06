@@ -15,7 +15,7 @@ export class BunAdapter implements Adapter {
   }
 
   private async executeResize(inputPath: string, op: ResizeOp, fixtureMeta: FixtureMeta): Promise<Buffer> {
-    const { width, height } = resolveOpDimensions(op, { ...fixtureMeta, type: "landscape", size: "medium", path: "", fileSizeBytes: 0 } as any);
+    const { width, height } = resolveOpDimensions(op, fixtureMeta);
 
     const options: Record<string, unknown> = {};
     if (op.fit === "inside") options.fit = "inside";

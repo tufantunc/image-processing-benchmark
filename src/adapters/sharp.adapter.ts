@@ -22,7 +22,7 @@ export class SharpAdapter implements Adapter {
     op: ResizeOp,
     fixtureMeta: FixtureMeta
   ): Promise<Buffer> {
-    const { width, height } = resolveOpDimensions(op, { ...fixtureMeta, type: "landscape", size: "medium", path: "", fileSizeBytes: 0 } as any);
+    const { width, height } = resolveOpDimensions(op, fixtureMeta);
 
     const sharpFit = op.fit === "inside" ? "inside" : "fill";
     const sharpKernel = this.mapKernel(op.kernel);

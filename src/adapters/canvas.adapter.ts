@@ -18,7 +18,7 @@ export class CanvasAdapter implements Adapter {
   }
 
   private async executeResize(image: any, createCanvas: any, op: ResizeOp, fixtureMeta: FixtureMeta): Promise<Buffer> {
-    const { width, height } = resolveOpDimensions(op, { ...fixtureMeta, type: "landscape", size: "medium", path: "", fileSizeBytes: 0 } as any);
+    const { width, height } = resolveOpDimensions(op, fixtureMeta);
 
     let canvasW = width;
     let canvasH = height;

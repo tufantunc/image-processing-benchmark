@@ -1,10 +1,10 @@
-import type { BenchmarkRun } from "../../types";
+import type { BenchmarkRun, BenchmarkConfig } from "../../types";
 import { reportTable } from "./table";
 import { reportJSON } from "./json";
 import { reportCSV } from "./csv";
 import { reportHTML } from "./html";
 
-export function reportResults(format: string, run: BenchmarkRun): void {
+export function reportResults(format: BenchmarkConfig["format"], run: BenchmarkRun): void {
   switch (format) {
     case "json":
       console.log(reportJSON(run));

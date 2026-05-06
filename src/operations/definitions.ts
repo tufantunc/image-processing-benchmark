@@ -1,4 +1,4 @@
-import type { Operation, ResizeOp, ConvertOp, Fixture } from "../types";
+import type { Operation, ResizeOp, ConvertOp, Fixture, FixtureMeta } from "../types";
 
 export const RESIZE_OPERATIONS: ResizeOp[] = [
   {
@@ -126,13 +126,13 @@ export function getOperationsByIds(ids: string[]): Operation[] {
 
 export function resolveOpDimensions(
   op: ResizeOp,
-  fixture: Fixture
+  fixture: Fixture | FixtureMeta
 ): { width: number; height: number } {
   const width =
-    typeof op.targetWidth === "function" ? op.targetWidth(fixture) : op.targetWidth;
+    typeof op.targetWidth === "function" ? op.targetWidth(fixture as Fixture) : op.targetWidth;
   const height =
     typeof op.targetHeight === "function"
-      ? op.targetHeight(fixture)
+      ? op.targetHeight(fixture as Fixture)
       : op.targetHeight;
   return { width, height };
 }

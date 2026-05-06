@@ -48,7 +48,7 @@ export class JimpAdapter implements Adapter {
   }
 
   private async executeResize(image: any, op: ResizeOp, fixtureMeta: FixtureMeta): Promise<Buffer> {
-    const { width, height } = resolveOpDimensions(op, { ...fixtureMeta, type: "landscape", size: "medium", path: "", fileSizeBytes: 0 } as any);
+    const { width, height } = resolveOpDimensions(op, fixtureMeta);
 
     const mode = (KERNEL_MAP[op.kernel] || "bicubicInterpolation") as any;
 

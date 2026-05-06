@@ -34,7 +34,7 @@ export class ImageMagickAdapter implements Adapter {
   }
 
   private async executeResize(inputPath: string, op: ResizeOp, fixtureMeta: FixtureMeta): Promise<Buffer> {
-    const { width, height } = resolveOpDimensions(op, { ...fixtureMeta, type: "landscape", size: "medium", path: "", fileSizeBytes: 0 } as any);
+    const { width, height } = resolveOpDimensions(op, fixtureMeta);
 
     const filter = KERNEL_MAP[op.kernel] || "Lanczos";
     let geometry = `${width}x${height}`;
@@ -83,12 +83,17 @@ export class ImageMagickAdapter implements Adapter {
     }
   }
 
+  private _cmd?: string;
+
   private detectCommand(): string {
+    if (this._cmd) return this._cmd;
     try {
       const result = Bun.spawnSync(["which", "magick"], { stdout: "pipe" });
-      if (result.exitCode === 0) return "magick";
-    } catch {}
-    return "convert";
+      this._cmd = result.exitCode === 0 ? "magick" : "convert";
+    } catch {
+      this._cmd = "convert";
+    }
+    return this._cmd;
   }
 }
 
