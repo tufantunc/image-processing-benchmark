@@ -34,9 +34,15 @@ export interface ConvertOp {
 
 export type Operation = ResizeOp | ConvertOp;
 
+export interface FixtureMeta {
+  width: number;
+  height: number;
+  format: ImageFormat;
+}
+
 export interface Adapter {
   name: string;
-  execute(operation: Operation, inputPath: string): Promise<Buffer>;
+  execute(operation: Operation, inputPath: string, fixtureMeta: FixtureMeta): Promise<Buffer>;
 }
 
 export interface IterationResult {
