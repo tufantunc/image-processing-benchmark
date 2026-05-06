@@ -1,75 +1,64 @@
 import sharp from "sharp";
-import type { Adapter, Operation, ResizeOp, ConvertOp, Fixture } from "../types";
+import type { Adapter, Operation, ResizeOp, ConvertOp, FixtureMeta } from "../types";
+import { registerAdapter, registerAdapterColor } from "./registry";
 import { resolveOpDimensions } from "../operations/definitions";
+
+registerAdapterColor("sharp", "#f47067");
 
 export class SharpAdapter implements Adapter {
   name = "sharp";
 
-  async execute(operation: Operation, inputPath: string): Promise<Buffer> {
+  async execute(operation: Operation, inputPath: string, fixtureMeta: FixtureMeta): Promise<Buffer> {
     const pipeline = sharp(inputPath);
 
     if (operation.kind === "resize") {
-      return this.executeResize(pipeline, operation);
+      return this.executeResize(pipeline, operation, fixtureMeta);
     }
     return this.executeConvert(pipeline, operation);
   }
 
   private async executeResize(
     pipeline: sharp.Sharp,
-    op: ResizeOp
+    op: ResizeOp,
+    fixtureMeta: FixtureMeta
   ): Promise<Buffer> {
-    const meta = await pipeline.metadata();
-    const fixture: Fixture = {
-      type: "landscape",
-      size: "medium",
-      format: (meta.format as "jpeg" | "png" | "webp") || "jpeg",
-      path: "",
-      width: meta.width || 100,
-      height: meta.height || 100,
-      fileSizeBytes: 0,
-    };
-    const { width, height } = resolveOpDimensions(op, fixture);
+    const { width, height } = resolveOpDimensions(op, { ...fixtureMeta, type: "landscape", size: "medium", path: "", fileSizeBytes: 0 } as any);
 
-    const sharpFit =
-      op.fit === "inside" ? "inside" : op.fit === "fill" ? "fill" : "fill";
-    const sharpKernel =
-      op.kernel === "nearest"
-        ? "nearest"
-        : op.kernel === "lanczos3"
-          ? "lanczos3"
-          : op.kernel === "lanczos2"
-            ? "lanczos2"
-            : op.kernel === "mitchell"
-              ? "mitchell"
-              : op.kernel === "linear" || op.kernel === "bilinear"
-                ? "linear"
-                : op.kernel === "cubic"
-                  ? "cubic"
-                  : "lanczos3";
+    const sharpFit = op.fit === "inside" ? "inside" : "fill";
+    const sharpKernel = this.mapKernel(op.kernel);
 
     return pipeline
-      .resize(width, height, {
-        fit: sharpFit,
-        kernel: sharpKernel,
-      })
+      .resize(width, height, { fit: sharpFit, kernel: sharpKernel })
       .toBuffer();
   }
 
-  private async executeConvert(
-    pipeline: sharp.Sharp,
-    op: ConvertOp
-  ): Promise<Buffer> {
+  private mapKernel(kernel: string): sharp.KernelEnum {
+    switch (kernel) {
+      case "nearest": return "nearest";
+      case "lanczos2": return "lanczos2";
+      case "lanczos3": return "lanczos3";
+      case "mitchell": return "mitchell";
+      case "linear":
+      case "bilinear": return "linear";
+      case "cubic": return "cubic";
+      default: return "lanczos3";
+    }
+  }
+
+  private async executeConvert(pipeline: sharp.Sharp, op: ConvertOp): Promise<Buffer> {
     switch (op.targetFormat) {
       case "jpeg":
-        return pipeline
-          .jpeg({ quality: op.quality ?? 80 })
-          .toBuffer();
+        return pipeline.jpeg({ quality: op.quality ?? 80 }).toBuffer();
       case "png":
         return pipeline.png().toBuffer();
       case "webp":
-        return pipeline
-          .webp({ quality: op.quality ?? 80 })
-          .toBuffer();
+        return pipeline.webp({ quality: op.quality ?? 80 }).toBuffer();
     }
   }
 }
+
+registerAdapter({
+  name: "sharp",
+  create: async () => new SharpAdapter(),
+  color: "#f47067",
+});

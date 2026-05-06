@@ -1,5 +1,8 @@
-import type { Adapter, Operation, ResizeOp, ConvertOp, Fixture, ImageFormat } from "../types";
+import type { Adapter, Operation, ResizeOp, ConvertOp, ImageFormat, FixtureMeta } from "../types";
+import { registerAdapter, registerAdapterColor } from "./registry";
 import { resolveOpDimensions } from "../operations/definitions";
+
+registerAdapterColor("jimp", "#e3b341");
 
 const KERNEL_MAP: Record<string, string> = {
   lanczos3: "bicubicInterpolation",
@@ -34,27 +37,18 @@ async function getJimp() {
 export class JimpAdapter implements Adapter {
   name = "jimp";
 
-  async execute(operation: Operation, inputPath: string): Promise<Buffer> {
+  async execute(operation: Operation, inputPath: string, fixtureMeta: FixtureMeta): Promise<Buffer> {
     const Jimp = await getJimp();
     const image = await Jimp.read(inputPath);
 
     if (operation.kind === "resize") {
-      return this.executeResize(image, operation);
+      return this.executeResize(image, operation, fixtureMeta);
     }
     return this.executeConvert(image, operation);
   }
 
-  private async executeResize(image: any, op: ResizeOp): Promise<Buffer> {
-    const fixture: Fixture = {
-      type: "landscape",
-      size: "medium",
-      format: "jpeg",
-      path: "",
-      width: image.width,
-      height: image.height,
-      fileSizeBytes: 0,
-    };
-    const { width, height } = resolveOpDimensions(op, fixture);
+  private async executeResize(image: any, op: ResizeOp, fixtureMeta: FixtureMeta): Promise<Buffer> {
+    const { width, height } = resolveOpDimensions(op, { ...fixtureMeta, type: "landscape", size: "medium", path: "", fileSizeBytes: 0 } as any);
 
     const mode = (KERNEL_MAP[op.kernel] || "bicubicInterpolation") as any;
 
@@ -79,3 +73,9 @@ export class JimpAdapter implements Adapter {
     return image.getBuffer(mime, options);
   }
 }
+
+registerAdapter({
+  name: "jimp",
+  create: async () => new JimpAdapter(),
+  color: "#e3b341",
+});

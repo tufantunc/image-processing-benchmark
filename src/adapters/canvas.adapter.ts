@@ -1,42 +1,24 @@
-import type { Adapter, Operation, ResizeOp, ConvertOp, Fixture, ImageFormat } from "../types";
+import type { Adapter, Operation, ResizeOp, ConvertOp, FixtureMeta } from "../types";
+import { registerAdapter, registerAdapterColor } from "./registry";
 import { resolveOpDimensions } from "../operations/definitions";
-import { extname } from "path";
 
-const FORMAT_FROM_EXT: Record<string, ImageFormat> = {
-  ".jpg": "jpeg",
-  ".jpeg": "jpeg",
-  ".png": "png",
-  ".webp": "webp",
-};
+registerAdapterColor("canvas", "#39d353");
 
 export class CanvasAdapter implements Adapter {
   name = "canvas";
 
-  async execute(operation: Operation, inputPath: string): Promise<Buffer> {
+  async execute(operation: Operation, inputPath: string, fixtureMeta: FixtureMeta): Promise<Buffer> {
     const { loadImage, createCanvas } = await import("@napi-rs/canvas" as string);
     const image = await loadImage(inputPath);
 
     if (operation.kind === "resize") {
-      return this.executeResize(image, createCanvas, operation);
+      return this.executeResize(image, createCanvas, operation, fixtureMeta);
     }
-    return this.executeConvert(image, createCanvas, operation, inputPath);
+    return this.executeConvert(image, createCanvas, operation);
   }
 
-  private async executeResize(
-    image: any,
-    createCanvas: any,
-    op: ResizeOp
-  ): Promise<Buffer> {
-    const fixture: Fixture = {
-      type: "landscape",
-      size: "medium",
-      format: "jpeg",
-      path: "",
-      width: image.width,
-      height: image.height,
-      fileSizeBytes: 0,
-    };
-    const { width, height } = resolveOpDimensions(op, fixture);
+  private async executeResize(image: any, createCanvas: any, op: ResizeOp, fixtureMeta: FixtureMeta): Promise<Buffer> {
+    const { width, height } = resolveOpDimensions(op, { ...fixtureMeta, type: "landscape", size: "medium", path: "", fileSizeBytes: 0 } as any);
 
     let canvasW = width;
     let canvasH = height;
@@ -54,12 +36,7 @@ export class CanvasAdapter implements Adapter {
     return canvas.encode("png");
   }
 
-  private async executeConvert(
-    image: any,
-    createCanvas: any,
-    op: ConvertOp,
-    inputPath: string
-  ): Promise<Buffer> {
+  private async executeConvert(image: any, createCanvas: any, op: ConvertOp): Promise<Buffer> {
     const canvas = createCanvas(image.width, image.height);
     const ctx = canvas.getContext("2d");
     ctx.drawImage(image, 0, 0);
@@ -74,3 +51,9 @@ export class CanvasAdapter implements Adapter {
     }
   }
 }
+
+registerAdapter({
+  name: "canvas",
+  create: async () => new CanvasAdapter(),
+  color: "#39d353",
+});

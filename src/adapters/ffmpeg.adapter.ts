@@ -1,8 +1,11 @@
-import type { Adapter, Operation, ResizeOp, ConvertOp, Fixture, ImageFormat } from "../types";
+import type { Adapter, Operation, ResizeOp, ConvertOp, ImageFormat, FixtureMeta } from "../types";
+import { registerAdapter, registerAdapterColor } from "./registry";
 import { resolveOpDimensions } from "../operations/definitions";
-import { writeFileSync, unlinkSync, existsSync } from "fs";
+import { existsSync, unlinkSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+
+registerAdapterColor("ffmpeg", "#bc8cff");
 
 const FORMAT_EXT: Record<ImageFormat, string> = {
   jpeg: "jpg",
@@ -23,25 +26,15 @@ const KERNEL_FLAGS: Record<string, string> = {
 export class FFmpegAdapter implements Adapter {
   name = "ffmpeg";
 
-  async execute(operation: Operation, inputPath: string): Promise<Buffer> {
+  async execute(operation: Operation, inputPath: string, fixtureMeta: FixtureMeta): Promise<Buffer> {
     if (operation.kind === "resize") {
-      return this.executeResize(inputPath, operation);
+      return this.executeResize(inputPath, operation, fixtureMeta);
     }
     return this.executeConvert(inputPath, operation);
   }
 
-  private async executeResize(inputPath: string, op: ResizeOp): Promise<Buffer> {
-    const meta = await this.probe(inputPath);
-    const fixture: Fixture = {
-      type: "landscape",
-      size: "medium",
-      format: meta.format,
-      path: "",
-      width: meta.width,
-      height: meta.height,
-      fileSizeBytes: 0,
-    };
-    const { width, height } = resolveOpDimensions(op, fixture);
+  private async executeResize(inputPath: string, op: ResizeOp, fixtureMeta: FixtureMeta): Promise<Buffer> {
+    const { width, height } = resolveOpDimensions(op, { ...fixtureMeta, type: "landscape", size: "medium", path: "", fileSizeBytes: 0 } as any);
 
     const flags = KERNEL_FLAGS[op.kernel] || "lanczos";
     let scaleFilter = `scale=${width}:${height}:flags=${flags}`;
@@ -49,8 +42,8 @@ export class FFmpegAdapter implements Adapter {
       scaleFilter += ":force_original_aspect_ratio=decrease";
     }
 
-    const ext = FORMAT_EXT[fixture.format] || "jpg";
-    const outFormat = fixture.format === "webp" ? "png" : fixture.format;
+    const ext = FORMAT_EXT[fixtureMeta.format] || "jpg";
+    const outFormat = fixtureMeta.format === "webp" ? "png" : fixtureMeta.format;
     const outExt = outFormat === "jpeg" ? "jpg" : outFormat;
     return this.runFFmpeg(inputPath, outExt, ["-vf", scaleFilter]);
   }
@@ -69,24 +62,12 @@ export class FFmpegAdapter implements Adapter {
     return this.runFFmpeg(inputPath, ext, extraArgs);
   }
 
-  private async runFFmpeg(
-    inputPath: string,
-    ext: string,
-    extraArgs: string[],
-  ): Promise<Buffer> {
+  private async runFFmpeg(inputPath: string, ext: string, extraArgs: string[]): Promise<Buffer> {
     const tmpOut = join(tmpdir(), `bench_ffmpeg_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`);
 
-    const args = [
-      "-y",
-      "-i", inputPath,
-      ...extraArgs,
-      tmpOut,
-    ];
+    const args = ["-y", "-i", inputPath, ...extraArgs, tmpOut];
 
-    const proc = Bun.spawn(["ffmpeg", ...args], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const proc = Bun.spawn(["ffmpeg", ...args], { stdout: "pipe", stderr: "pipe" });
 
     const exitCode = await proc.exited;
     if (exitCode !== 0) {
@@ -96,45 +77,9 @@ export class FFmpegAdapter implements Adapter {
     }
 
     try {
-      const buf = Buffer.from(await Bun.file(tmpOut).arrayBuffer());
-      return buf;
+      return Buffer.from(await Bun.file(tmpOut).arrayBuffer());
     } finally {
       try { unlinkSync(tmpOut); } catch {}
-    }
-  }
-
-  private async probe(inputPath: string): Promise<{ width: number; height: number; format: ImageFormat }> {
-    const proc = Bun.spawn([
-      "ffprobe",
-      "-v", "quiet",
-      "-print_format", "json",
-      "-show_streams",
-      "-select_streams", "v:0",
-      inputPath,
-    ], { stdout: "pipe", stderr: "pipe" });
-
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) {
-      return { width: 100, height: 100, format: "jpeg" };
-    }
-
-    const stdout = new TextDecoder().decode(await new Response(proc.stdout).arrayBuffer());
-    try {
-      const json = JSON.parse(stdout);
-      const stream = json.streams?.[0];
-      if (!stream) return { width: 100, height: 100, format: "jpeg" };
-
-      const fmt = stream.codec_name === "webp" ? "webp"
-        : stream.codec_name === "png" ? "png"
-        : "jpeg";
-
-      return {
-        width: stream.width || 100,
-        height: stream.height || 100,
-        format: fmt,
-      };
-    } catch {
-      return { width: 100, height: 100, format: "jpeg" };
     }
   }
 
@@ -142,3 +87,9 @@ export class FFmpegAdapter implements Adapter {
     return Math.max(1, Math.min(31, Math.round(31 - (q / 100) * 30)));
   }
 }
+
+registerAdapter({
+  name: "ffmpeg",
+  create: async () => new FFmpegAdapter(),
+  color: "#bc8cff",
+});
