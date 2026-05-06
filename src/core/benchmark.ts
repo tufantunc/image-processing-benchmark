@@ -23,6 +23,11 @@ export async function runBenchmark(params: RunParams) {
       adapterName,
       operation: serializeOpForWorker(operation, fixture),
       inputPath: fixture.path,
+      fixtureMeta: {
+        width: fixture.width,
+        height: fixture.height,
+        format: fixture.format,
+      },
     });
 
     const workerPath = import.meta.dir + "/worker.ts";
